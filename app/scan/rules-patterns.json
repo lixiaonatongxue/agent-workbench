@@ -1,0 +1,52 @@
+{
+  "agents": [
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "project_patterns": ["CLAUDE.md", "CLAUDE.local.md"],
+      "global_patterns": [".claude/CLAUDE.md"]
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "project_patterns": ["AGENTS.md"],
+      "global_patterns": [".codex/AGENTS.md"]
+    },
+    {
+      "id": "zcode",
+      "name": "ZCode",
+      "project_patterns": ["AGENTS.md"],
+      "global_patterns": [".zcode/AGENTS.md"]
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "project_patterns": [".cursor/rules/*.mdc", ".cursor/rules/*.md", ".cursorrules"],
+      "global_patterns": [".cursor/rules/*.mdc"]
+    },
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "project_patterns": ["GEMINI.md"],
+      "global_patterns": [".gemini/GEMINI.md"]
+    },
+    {
+      "id": "copilot",
+      "name": "GitHub Copilot",
+      "project_patterns": [".github/copilot-instructions.md"],
+      "global_patterns": []
+    },
+    {
+      "id": "windsurf",
+      "name": "Windsurf",
+      "project_patterns": [".windsurfrules", ".windsurf/rules/*.md"],
+      "global_patterns": []
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "project_patterns": [".clinerules", ".clinerules/*.md"],
+      "global_patterns": []
+    }
+  ]
+}
