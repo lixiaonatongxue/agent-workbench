@@ -27,5 +27,17 @@ export const api = {
   settings: () => request('/api/settings'),
   saveSettings: (settings) =>
     request('/api/settings', { method: 'PUT', body: JSON.stringify(settings) }),
-  clearData: () => request('/api/data', { method: 'DELETE' }),
+  clearData: (scope = 'rules') => request(`/api/data?scope=${scope}`, { method: 'DELETE' }),
+
+  indexSessions: (wait = false) =>
+    request('/api/sessions/index', {
+      method: 'POST',
+      body: JSON.stringify({ wait }),
+    }),
+  sessionIndexStatus: () => request('/api/sessions/index/status'),
+  listSessions: (params = {}) =>
+    request('/api/sessions?' + new URLSearchParams(params).toString()),
+  sessionFilters: () => request('/api/sessions/filters'),
+  sessionDetail: (id) => request(`/api/sessions/${id}`),
+  exportUrl: (id) => `/api/sessions/${id}/export`,
 }

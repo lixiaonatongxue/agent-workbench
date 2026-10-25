@@ -41,13 +41,30 @@ npm run dev                                       # http://127.0.0.1:8801
 中英文混合双系数加权：中文字符数 ÷ 1.8 + 其他字符数 ÷ 3.5，展示为「约 X tokens」。
 系数可在设置页调整。该口径用于决策参考（误差 < 15%），不追求与官方 tokenizer 完全一致。
 
+## 功能
+
+**规则体检（Rules Doctor）**
+- 扫描指定根目录下所有 git 仓库 + 用户目录，定位 8 家 agent 的规则文件（AGENTS.md / CLAUDE.md / .cursor/rules / GEMINI.md / copilot-instructions …，模式表外置可扩展）
+- 同一文件被多个 agent 认领时自动合并（如 dify 的 CLAUDE.md 软链到 AGENTS.md → 三家共用）
+- 计量：行数 / 字符 / token 估算（中英双系数），按 agent / 按仓库汇总「每次会话固定注入多少」
+- 重复检测：规则块 simhash 相似度分组（跨文件 / 跨仓库复制的规则一眼现形）
+- 陈旧检测：规则文件半年未动 + 仓库仍活跃 → 疑似过时
+- 成本估算：单价、会话频率可配，"一年烧多少钱" 直出
+
+**会话档案馆（Session Explorer）**
+- 适配器解析 ZCode（`~/.zcode/cli/db/db.sqlite`）与 Claude Code（`~/.claude/projects/**.jsonl`）的本地会话存储，归一化为统一模型
+- SQLite FTS5 全文索引（增量，按源文件 mtime 去重）
+- 统一时间线：跨 agent 按时间排列，按 agent / 项目 / 关键词过滤
+- 全文搜索：关键词跨全部历史秒出，命中片段高亮
+- 一键导出排版良好的 Markdown（含工具调用摘要）
+
 ## Roadmap
 
 - [x] v0.1-W1 扫描层 + 规则体检 A1-A4（计量 / 重复 / 陈旧 / 成本估算）
-- [ ] v0.1-W2 会话适配器（ZCode、Claude Code）+ FTS5 全文搜索 + 时间线
-- [ ] v0.1-W3 Markdown 导出 + 联调打磨 → 发布 v0.1
+- [x] v0.1-W2 会话适配器（ZCode、Claude Code）+ FTS5 全文搜索 + 时间线 + Markdown 导出
+- [ ] v0.1-W3 联调打磨 → 发布 v0.1
 - [ ] v0.2 矛盾检测、Codex 适配器、项目视图、使用统计
-- [ ] v1.0 一键渐进式披露重构、敏感信息打码导出、增量索引
+- [ ] v1.0 一键渐进式披露重构、敏感信息打码导出
 
 ## License
 
