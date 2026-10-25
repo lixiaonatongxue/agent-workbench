@@ -59,6 +59,38 @@ CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    project TEXT,
+    project_path TEXT,
+    title TEXT,
+    started_at REAL,
+    ended_at REAL,
+    msg_count INTEGER,
+    source_path TEXT,
+    UNIQUE(agent, external_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    role TEXT,
+    ts REAL,
+    content TEXT,
+    tool_name TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
+CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+    content, content=messages, content_rowid=id, tokenize='unicode61'
+);
+CREATE TABLE IF NOT EXISTS index_state (
+    source_path TEXT PRIMARY KEY,
+    source_mtime REAL,
+    session_count INTEGER,
+    indexed_at TEXT
+);
 """
 
 DEFAULT_SETTINGS = {
@@ -158,9 +190,20 @@ def save_scan(conn: sqlite3.Connection, files: list[RuleFileInfo],
 
 
 def wipe_scan_data(conn: sqlite3.Connection) -> None:
-    """Privacy switch: drop all scanned rule content from the local index."""
+    """Privacy switch: drop all indexed rule content from the local index."""
     with conn:
         conn.execute("DELETE FROM rule_blocks")
         conn.execute("DELETE FROM rule_files")
         conn.execute("DELETE FROM repos")
         conn.execute("DELETE FROM scan_runs")
+
+
+def wipe_session_data(conn: sqlite3.Connection) -> None:
+    """Privacy switch: drop all indexed session content (keeps rule scans)."""
+    with conn:
+        conn.execute(
+            "INSERT INTO messages_fts(messages_fts, rowid, content)"
+            " SELECT 'delete', id, content FROM messages")
+        conn.execute("DELETE FROM messages")
+        conn.execute("DELETE FROM sessions")
+        conn.execute("DELETE FROM index_state")
