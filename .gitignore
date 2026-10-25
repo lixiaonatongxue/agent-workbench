@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Local data & caches (never commit personal data / indexes)
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+
+# Node
+node_modules/
+web/dist/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
