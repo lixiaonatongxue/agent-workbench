@@ -1,11 +1,29 @@
-"""Markdown export for a single session (W3 deliverable, wired in W2)."""
+"""Markdown export for a single session, with optional secret masking."""
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from datetime import datetime, timezone
 
 ROLE_ICON = {"user": "👤", "assistant": "🤖", "tool": "🔧"}
+
+SECRET_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\b(?:sk|rk)-[A-Za-z0-9_-]{16,}"), "sk-***MASKED***"),
+    (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}"), "gh*_***MASKED***"),
+    (re.compile(r"\bAKIA[0-9A-Z]{16}"), "AKIA***MASKED***"),
+    (re.compile(r"\bxox[apsb]-[A-Za-z0-9-]{10,}"), "xox*-***MASKED***"),
+    (re.compile(r"(?i)\b(api[_-]?key|apikey|token|password|passwd|secret)"
+                r"(\s*[=:]\s*)(['\"]?)[A-Za-z0-9_\-./+]{8,}\3"),
+     r"\1\2***MASKED***"),
+    (re.compile(r"(?i)bearer\s+[A-Za-z0-9_\-./+]{16,}"), "bearer ***MASKED***"),
+]
+
+
+def mask_secrets(text: str) -> str:
+    for pattern, replacement in SECRET_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
 
 
 def _fmt_ts(ts: float) -> str:
@@ -15,7 +33,8 @@ def _fmt_ts(ts: float) -> str:
         "%Y-%m-%d %H:%M")
 
 
-def export_session_markdown(conn: sqlite3.Connection, session_id: int) -> str | None:
+def export_session_markdown(conn: sqlite3.Connection, session_id: int,
+                            mask: bool = False) -> str | None:
     sess = conn.execute(
         "SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
     if sess is None:
@@ -48,6 +67,8 @@ def export_session_markdown(conn: sqlite3.Connection, session_id: int) -> str | 
         lines.append(f"## {icon} {role_label} · {stamp}")
         lines.append("")
         content = m["content"] or ""
+        if mask:
+            content = mask_secrets(content)
         tool_lines = [ln for ln in content.splitlines() if ln.startswith("[tool")]
         text_lines = [ln for ln in content.splitlines() if not ln.startswith("[tool")]
         if text_lines:

@@ -15,6 +15,7 @@ from typing import Callable
 
 from app.sessions.adapters import BaseAdapter
 from app.sessions.adapters.claude_code import ClaudeCodeAdapter
+from app.sessions.adapters.codex import CodexAdapter
 from app.sessions.adapters.zcode import ZcodeAdapter
 from app.sessions.models import SessionRecord
 
@@ -22,7 +23,8 @@ ProgressFn = Callable[[str, int, int, str], None]
 
 
 def default_adapters(user_home: str | None = None) -> list[BaseAdapter]:
-    return [ZcodeAdapter(user_home), ClaudeCodeAdapter(user_home)]
+    return [ZcodeAdapter(user_home), ClaudeCodeAdapter(user_home),
+            CodexAdapter(user_home)]
 
 
 def _utcnow_iso() -> str:

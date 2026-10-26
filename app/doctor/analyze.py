@@ -13,6 +13,7 @@ import time
 from datetime import datetime, timezone
 
 from app.db import get_settings
+from app.doctor.contradictions import detect_contradictions
 from app.doctor.simhash import group_near_duplicates
 from app.scan.rulefiles import RuleScanner
 
@@ -98,7 +99,7 @@ def build_report(conn: sqlite3.Connection) -> dict:
     # ---------- duplicates (A3) ----------
     blocks = [dict(row) for row in conn.execute(
         "SELECT b.id, b.file_id, b.start_line, b.end_line, b.tokens_est, b.simhash,"
-        " f.path, f.repo, f.agents"
+        " b.text, f.path, f.repo, f.agents"
         " FROM rule_blocks b JOIN rule_files f ON f.id = b.file_id")]
     groups = group_near_duplicates(
         [b["simhash"] & 0xFFFFFFFFFFFFFFFF for b in blocks]) if blocks else []
@@ -122,9 +123,13 @@ def build_report(conn: sqlite3.Connection) -> dict:
                 "start_line": m["start_line"],
                 "end_line": m["end_line"],
                 "tokens_est": m["tokens_est"],
+                "preview": " ".join((m["text"] or "").split())[:110],
             } for m in members],
         })
     duplicate_groups.sort(key=lambda g: g["wasted_tokens"], reverse=True)
+
+    # ---------- contradictions (A5, heuristic) ----------
+    contradictions = detect_contradictions(blocks)
 
     # ---------- staleness (A4) ----------
     stale_days = float(settings["stale_days"])
@@ -196,6 +201,7 @@ def build_report(conn: sqlite3.Connection) -> dict:
             "wasted_tokens": total_wasted,
             "cross_file_wasted_tokens": cross_file_wasted,
         },
+        "contradictions": contradictions,
         "stale_files": stale_files,
         "cost": {
             "worst_agent": worst["name"] if worst else None,

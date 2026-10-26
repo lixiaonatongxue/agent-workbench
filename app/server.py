@@ -19,6 +19,7 @@ from app.doctor.analyze import build_report
 from app.scan.rulefiles import RuleScanner
 from app.sessions import indexer, query
 from app.sessions.export import export_session_markdown
+from app.sessions.stats import build_stats
 
 app = FastAPI(title="Agent Workbench", version="0.1.0")
 
@@ -217,6 +218,25 @@ def session_filters() -> dict:
         conn.close()
 
 
+@app.get("/api/sessions/stats")
+def session_stats() -> dict:
+    conn = db.connect()
+    try:
+        return build_stats(conn)
+    finally:
+        conn.close()
+
+
+@app.get("/api/sessions/search")
+def session_search(q: str = Query(min_length=1), agent: str | None = None,
+                   limit: int = 20) -> dict:
+    conn = db.connect()
+    try:
+        return {"items": query.search_messages(conn, q, agent=agent, limit=limit)}
+    finally:
+        conn.close()
+
+
 @app.get("/api/sessions/{session_id}")
 def session_detail(session_id: int) -> dict:
     conn = db.connect()
@@ -230,10 +250,10 @@ def session_detail(session_id: int) -> dict:
 
 
 @app.get("/api/sessions/{session_id}/export", response_class=PlainTextResponse)
-def session_export(session_id: int) -> PlainTextResponse:
+def session_export(session_id: int, mask: bool = Query(default=False)) -> PlainTextResponse:
     conn = db.connect()
     try:
-        markdown = export_session_markdown(conn, session_id)
+        markdown = export_session_markdown(conn, session_id, mask=mask)
     finally:
         conn.close()
     if markdown is None:
