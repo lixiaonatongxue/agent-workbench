@@ -3,18 +3,21 @@ import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { api } from '../api'
 
 const AGENT_LABELS = { 'zcode': 'ZCode', 'claude-code': 'Claude Code', 'codex': 'Codex' }
+const PAGE = 50
 
 const filters = ref({ agents: [], projects: [] })
 const agent = ref('')
 const project = ref('')
 const keyword = ref('')
 const searching = ref(false)
-const list = ref({ total: 0, items: [] })
+const list = ref({ total: 0, items: [], offset: 0 })
+const hits = ref([])           // message-level hits for the keyword
 const detail = ref(null)
 const detailId = ref(null)
 const indexing = ref(false)
 const indexStatus = ref(null)
 const error = ref('')
+const maskExport = ref(false)
 let timer = null
 
 const fmtTime = (ts) => {
@@ -24,18 +27,47 @@ const fmtTime = (ts) => {
 }
 const agentLabel = (a) => AGENT_LABELS[a] || a
 
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/** Escape then wrap keyword occurrences in <mark>; server-side 【】 markers too. */
+function highlight(text, kw) {
+  let html = escapeHtml(text || '')
+  if (kw) {
+    const esc = escapeHtml(kw).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    html = html.replace(new RegExp(esc, 'gi'), m => `<mark>${m}</mark>`)
+  }
+  return html
+}
+
+function highlightSnippet(snippet) {
+  // server marks hits with 【kw】; convert to <mark>, keyword itself highlighted
+  return highlight((snippet || '').replace(/【|】/g, ''), keyword.value.trim())
+}
+
+const canLoadMore = computed(() =>
+  list.value.items.length < list.value.total)
+
 async function loadFilters() {
   try { filters.value = await api.sessionFilters() } catch { /* ignore */ }
 }
 
-async function loadList() {
+async function loadList(append = false) {
   searching.value = true
   try {
-    const params = { limit: 50 }
+    const params = { limit: PAGE, offset: append ? list.value.items.length : 0 }
     if (agent.value) params.agent = agent.value
     if (project.value) params.project = project.value
-    if (keyword.value.trim()) params.q = keyword.value.trim()
-    list.value = await api.listSessions(params)
+    const kw = keyword.value.trim()
+    if (kw) params.q = kw
+    const res = await api.listSessions(params)
+    list.value = {
+      ...res,
+      items: append ? [...list.value.items, ...res.items] : res.items,
+    }
+    // message-level hits alongside session hits
+    hits.value = kw ? (await api.searchMessages(kw, agent.value, 12)).items : []
   } catch (e) {
     error.value = e.message
   } finally {
@@ -124,7 +156,7 @@ onUnmounted(() => clearInterval(timer))
   </div>
 
   <div v-if="!list.items.length" class="card empty">
-    {{ list.total === 0 && keyword ? '没有匹配的会话 —— 换个关键词试试' : '还没有会话数据 —— 点「索引会话」解析本机 ZCode / Claude Code 的历史记录' }}
+    {{ list.total === 0 && keyword ? '没有匹配的会话 —— 换个关键词试试' : '还没有会话数据 —— 点「索引会话」解析本机 ZCode / Claude Code / Codex 的历史记录' }}
   </div>
 
   <div v-if="list.items.length" class="sessions-layout">
@@ -145,9 +177,30 @@ onUnmounted(() => clearInterval(timer))
           <span class="session-date">{{ fmtTime(s.started_at) }}</span>
         </div>
         <div class="session-title">{{ s.title || '(无标题)' }}</div>
-        <div v-if="s.snippet" class="session-snippet">{{ s.snippet }}</div>
+        <div v-if="s.snippet" class="session-snippet" v-html="highlightSnippet(s.snippet)"></div>
         <div class="session-meta">{{ s.msg_count }} 条消息<template v-if="s.hit_count"> · {{ s.hit_count }} 处命中</template></div>
       </div>
+      <div v-if="canLoadMore" style="text-align: center; padding: 6px;">
+        <button :disabled="searching" @click="loadList(true)">加载更多（{{ list.total - list.items.length }}）</button>
+      </div>
+
+      <!-- message-level hits -->
+      <template v-if="hits.length">
+        <div class="section-title" style="margin: 12px 0 8px;">消息级命中 <span class="count">Top {{ hits.length }}</span></div>
+        <div
+          v-for="h in hits" :key="'h' + h.id"
+          class="session-item msg-hit" @click="openSession(h.session_id)"
+        >
+          <div class="session-item-head">
+            <span class="agent-dot" :class="h.agent"></span>
+            <span class="agent-name">{{ agentLabel(h.agent) }}</span>
+            <span class="project-name">{{ h.project }}</span>
+            <span class="session-date">{{ fmtTime(h.ts) }}</span>
+          </div>
+          <div class="session-snippet" v-html="highlight(h.snippet, keyword)"></div>
+          <div class="session-meta">{{ h.role }} · {{ (h.title || '').slice(0, 40) }}</div>
+        </div>
+      </template>
     </div>
 
     <!-- detail pane -->
@@ -163,8 +216,11 @@ onUnmounted(() => clearInterval(timer))
               · {{ fmtTime(detail.started_at) }} → {{ fmtTime(detail.ended_at) }}
               · {{ detail.msg_count }} 条消息
             </div>
+            <label class="hint" style="display: inline-flex; align-items: center; gap: 5px; margin-top: 6px;">
+              <input v-model="maskExport" type="checkbox" /> 导出时打码敏感信息
+            </label>
           </div>
-          <a :href="api.exportUrl(detail.id)" download>
+          <a :href="api.exportUrl(detail.id, maskExport)" download>
             <button>导出 Markdown</button>
           </a>
         </div>
@@ -176,7 +232,7 @@ onUnmounted(() => clearInterval(timer))
               <span v-else>🔧 {{ m.tool_name || 'tool' }}</span>
               <span class="msg-time">{{ fmtTime(m.ts) }}</span>
             </div>
-            <div class="msg-text">{{ messageBlocks(m.content).text }}</div>
+            <div class="msg-text" v-html="highlight(messageBlocks(m.content).text, keyword)"></div>
             <div v-if="messageBlocks(m.content).tools.length" class="msg-tools">
               <div v-for="t in messageBlocks(m.content).tools" :key="t">{{ t }}</div>
             </div>
@@ -210,6 +266,7 @@ onUnmounted(() => clearInterval(timer))
 }
 .session-item:hover { border-color: var(--blue); }
 .session-item.selected { border-color: var(--green); }
+.msg-hit { padding: 7px 11px; }
 .session-item-head { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .agent-dot {
   width: 9px; height: 9px; border-radius: 50%;
@@ -226,6 +283,9 @@ onUnmounted(() => clearInterval(timer))
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .session-snippet { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.session-snippet :deep(mark), .msg-text :deep(mark) {
+  color: var(--orange); background: rgba(210, 153, 34, 0.15); font-weight: 700;
+}
 .session-meta { margin-top: 4px; font-size: 11px; color: var(--muted); }
 
 .session-detail { padding: 14px 16px; max-height: calc(100vh - 240px); display: flex; flex-direction: column; }

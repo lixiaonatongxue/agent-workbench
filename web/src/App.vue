@@ -2,12 +2,14 @@
 import { ref } from 'vue'
 import DoctorPage from './components/DoctorPage.vue'
 import SessionsPage from './components/SessionsPage.vue'
+import StatsPage from './components/StatsPage.vue'
 import SettingsPage from './components/SettingsPage.vue'
 
 const tab = ref('doctor')
 const tabs = [
   { id: 'doctor', label: '规则体检' },
   { id: 'sessions', label: '会话档案馆' },
+  { id: 'stats', label: '使用统计' },
   { id: 'settings', label: '设置' },
 ]
 </script>
@@ -32,7 +34,8 @@ const tabs = [
   </div>
   <div class="container">
     <DoctorPage v-show="tab === 'doctor'" />
-    <SessionsPage v-if="tab === 'sessions'" />
+    <SessionsPage v-show="tab === 'sessions'" />
+    <StatsPage v-if="tab === 'stats'" />
     <SettingsPage v-if="tab === 'settings'" />
   </div>
 </template>

@@ -72,6 +72,18 @@ const totals = computed(() => report.value?.totals ?? { files: 0, tokens: 0 })
 const cost = computed(() => report.value?.cost ?? {})
 const dups = computed(() => report.value?.duplicates ?? { groups: [], group_count: 0 })
 const staleFiles = computed(() => report.value?.stale_files ?? [])
+const contradictions = computed(() => report.value?.contradictions ?? [])
+
+function scopeName(g) {
+  if (g.scope === 'file') {
+    const parts = g.scope_name.replace(/\\/g, '/').split('/')
+    return parts.slice(-2).join('/')
+  }
+  return `同一次会话注入 · ${agentName(g.scope_name)}`
+}
+
+const AGENT_LABELS = { 'zcode': 'ZCode', 'claude-code': 'Claude Code', 'codex': 'Codex' }
+function agentName(id) { return AGENT_LABELS[id] || id }
 </script>
 
 <template>
@@ -225,6 +237,25 @@ const staleFiles = computed(() => report.value?.stale_files ?? [])
         </summary>
         <div v-for="m in g.members" :key="m.path + m.start_line" class="member">
           {{ m.path }} : {{ m.start_line }}-{{ m.end_line }} (≈{{ fmt(m.tokens_est) }} tokens)
+          <div v-if="m.preview" class="member-preview">{{ m.preview }}</div>
+        </div>
+      </details>
+    </div>
+
+    <!-- contradictions -->
+    <div class="section-title">疑似矛盾规则 <span class="count">{{ contradictions.length }} 组（启发式，供人工确认）</span></div>
+    <div class="card">
+      <div v-if="!contradictions.length" class="empty">没有发现同主题的相反指令 👍</div>
+      <details v-for="(g, i) in contradictions" :key="'c' + i" class="dup-group">
+        <summary>
+          <span class="chip conflict">矛盾</span>
+          <b>{{ g.label }}</b> · {{ scopeName(g) }} · {{ g.values.length }} 种说法
+        </summary>
+        <div v-for="v in g.values" :key="v.value" class="member" style="margin: 6px 0;">
+          <span class="chip dup">{{ v.value }}</span>
+          <div v-for="(m, j) in v.mentions" :key="j" class="member-preview">
+            {{ m.path }} : {{ m.line }} — {{ m.brief }}
+          </div>
         </div>
       </details>
     </div>

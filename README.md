@@ -47,24 +47,28 @@ npm run dev                                       # http://127.0.0.1:8801
 - 扫描指定根目录下所有 git 仓库 + 用户目录，定位 8 家 agent 的规则文件（AGENTS.md / CLAUDE.md / .cursor/rules / GEMINI.md / copilot-instructions …，模式表外置可扩展）
 - 同一文件被多个 agent 认领时自动合并（如 dify 的 CLAUDE.md 软链到 AGENTS.md → 三家共用）
 - 计量：行数 / 字符 / token 估算（中英双系数），按 agent / 按仓库汇总「每次会话固定注入多少」
-- 重复检测：规则块 simhash 相似度分组（跨文件 / 跨仓库复制的规则一眼现形）
+- 重复检测：规则块 simhash 相似度分组（跨文件 / 跨仓库复制的规则一眼现形，附内容预览）
+- 矛盾检测：包管理器 / Python 版本 / 回答语言 / 默认分支等同主题相反指令，按文件与「同会话共注入」两个范围输出（启发式，供人工确认）
 - 陈旧检测：规则文件半年未动 + 仓库仍活跃 → 疑似过时
 - 成本估算：单价、会话频率可配，"一年烧多少钱" 直出
 
 **会话档案馆（Session Explorer）**
-- 适配器解析 ZCode（`~/.zcode/cli/db/db.sqlite`）与 Claude Code（`~/.claude/projects/**.jsonl`）的本地会话存储，归一化为统一模型
+- 适配器解析 ZCode（`~/.zcode/cli/db/db.sqlite`）、Claude Code（`~/.claude/projects/**.jsonl`）、Codex（`~/.codex/sessions/**.jsonl`）的本地会话存储，归一化为统一模型
 - SQLite FTS5 全文索引（增量，按源文件 mtime 去重）
 - 统一时间线：跨 agent 按时间排列，按 agent / 项目 / 关键词过滤
-- 全文搜索：关键词跨全部历史秒出，命中片段高亮
-- 一键导出排版良好的 Markdown（含工具调用摘要）
+- 全文搜索：会话级 + 消息级两级命中，关键词高亮
+- 一键导出排版良好的 Markdown（含工具调用摘要，可选敏感信息打码：API key / GitHub token / AWS AKIA / bearer …）
+
+**使用统计**
+- 近 12 个月会话活跃度（按 agent 堆叠）、各 agent 会话/消息/平均长度、最活跃项目排行
 
 ## Roadmap
 
 - [x] v0.1-W1 扫描层 + 规则体检 A1-A4（计量 / 重复 / 陈旧 / 成本估算）
 - [x] v0.1-W2 会话适配器（ZCode、Claude Code）+ FTS5 全文搜索 + 时间线 + Markdown 导出
-- [ ] v0.1-W3 联调打磨 → 发布 v0.1
-- [ ] v0.2 矛盾检测、Codex 适配器、项目视图、使用统计
-- [ ] v1.0 一键渐进式披露重构、敏感信息打码导出
+- [x] v0.2 Codex 适配器、矛盾检测（A5）、使用统计页、消息级搜索、导出打码
+- [ ] v0.3 联调打磨 → 发布 v0.1
+- [ ] v1.0 一键渐进式披露重构（A6）、增量索引打磨、更多 agent 适配
 
 ## License
 

@@ -38,6 +38,12 @@ export const api = {
   listSessions: (params = {}) =>
     request('/api/sessions?' + new URLSearchParams(params).toString()),
   sessionFilters: () => request('/api/sessions/filters'),
+  sessionStats: () => request('/api/sessions/stats'),
   sessionDetail: (id) => request(`/api/sessions/${id}`),
-  exportUrl: (id) => `/api/sessions/${id}/export`,
+  searchMessages: (q, agent, limit = 20) => {
+    const params = { q, limit }
+    if (agent) params.agent = agent
+    return request('/api/sessions/search?' + new URLSearchParams(params).toString())
+  },
+  exportUrl: (id, mask = false) => `/api/sessions/${id}/export?mask=${mask}`,
 }
